@@ -19,7 +19,7 @@ GOOGLE_CLIENT_ID = "9792465820-qnvrp2qh51v9ssbeehgmn819h3s88641.apps.googleuserc
 flow = Flow.from_client_secrets_file(
     client_secrets_file=CLIENT_SECRETS_FILE,
     scopes=["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email", "openid"],
-    redirect_uri="https://aimarketpro.onrender.com//callback"
+    redirect_uri="https://aimarketpro.onrender.com/callback"
 )
 
 @app.route("/")
