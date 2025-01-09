@@ -3,6 +3,7 @@ from google_auth_oauthlib.flow import Flow
 from pip._vendor import cachecontrol
 import google.auth.transport.requests
 from google.oauth2 import id_token
+from googleapiclient.discovery import build
 import os
 import pathlib
 import requests
@@ -13,12 +14,17 @@ app.secret_key = "your-secret-key@12344321"
 
 # Google OAuth2 credentials
 CLIENT_SECRETS_FILE = "client_secret.json"  # Download this from GCP
-GOOGLE_CLIENT_ID = "9792465820-qnvrp2qh51v9ssbeehgmn819h3s88641.apps.googleusercontent.com"  # Replace with your client ID
+GOOGLE_CLIENT_ID = "9792465820-qnvrp2qh51v9ssbeehgmn819h3s88641.apps.googleusercontent.com"
 
-# OAuth2 configuration
+# OAuth2 configuration with just Drive scope
 flow = Flow.from_client_secrets_file(
     client_secrets_file=CLIENT_SECRETS_FILE,
-    scopes=["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email", "openid"],
+    scopes=[
+        "https://www.googleapis.com/auth/userinfo.profile", 
+        "https://www.googleapis.com/auth/userinfo.email", 
+        "openid",
+        "https://www.googleapis.com/auth/drive"  # Full Drive access
+    ],
     redirect_uri="https://aimarketpro.onrender.com/callback"
 )
 
@@ -40,6 +46,15 @@ def callback():
         return redirect(url_for("index"))  # State doesn't match!
 
     credentials = flow.credentials
+    session['credentials'] = {
+        'token': credentials.token,
+        'refresh_token': credentials.refresh_token,
+        'token_uri': credentials.token_uri,
+        'client_id': credentials.client_id,
+        'client_secret': credentials.client_secret,
+        'scopes': credentials.scopes
+    }
+
     request_session = requests.session()
     cached_session = cachecontrol.CacheControl(request_session)
     token_request = google.auth.transport.requests.Request(session=cached_session)
@@ -56,21 +71,42 @@ def callback():
     
     return redirect(url_for("index"))
 
+@app.route("/drive")
+def drive():
+    if 'credentials' not in session:
+        return redirect(url_for('login'))
+
+    # Build the Drive API service
+    credentials = google.oauth2.credentials.Credentials(**session['credentials'])
+    drive_service = build('drive', 'v3', credentials=credentials)
+
+    try:
+        # Call the Drive API
+        results = drive_service.files().list(
+            pageSize=100,
+            fields="nextPageToken, files(id, name, mimeType, modifiedTime, size)",
+            orderBy="modifiedTime desc"
+        ).execute()
+        files = results.get('files', [])
+
+        # Update credentials in session
+        session['credentials'] = {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': credentials.scopes
+        }
+
+        return render_template('drive.html', files=files)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return redirect(url_for('index'))
 
 @app.route("/logout")
 def logout():
-    # Clear specific session variables
-    session.pop('google_id', None)
-    session.pop('name', None)
-    session.pop('email', None)
-    session.pop('picture', None)
-    session.pop('is_logged_in', None)
-    session.pop('state', None)
-    
-    # Or clear entire session
     session.clear()
-    
-    # Redirect to home page
     return redirect(url_for('index'))
 
 if __name__ == "__main__":
