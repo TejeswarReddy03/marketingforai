@@ -25,7 +25,7 @@ flow = Flow.from_client_secrets_file(
         "openid",
         "https://www.googleapis.com/auth/drive"  # Full Drive access
     ],
-    redirect_uri="https://aimarketpro.onrender.com/callback"
+    redirect_uri="https://marketingforai.onrender.com/callback"
 )
 
 @app.route("/")
